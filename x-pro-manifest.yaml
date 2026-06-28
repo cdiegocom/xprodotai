@@ -1,0 +1,43 @@
+# X-PRO.ai · version 1.1.0
+# x-pro-manifest.yaml — PROJECT (instance) manifest.
+# The catalog is GLOBAL and external; here we only reference the version pinned in the lock.
+
+x_pro:
+  version: "1.1"
+  generated: "{{ DATE }}"
+
+catalog:
+  ref: x-pro-catalog
+  lockfile: ./x-pro.lock          # source of truth for the version; do not duplicate here
+
+project:
+  name: "{{ PROJECT_NAME }}"
+  id: "{{ PROJECT_ID }}"
+  agent_target: "{{ AGENT_TARGET }}"     # claude-code | cursor | copilot | generic
+  stack:
+    language: "{{ LANGUAGE }}"
+    framework: "{{ FRAMEWORK }}"
+    cloud: "{{ CLOUD }}"
+
+tier:
+  global: "{{ TIER_GLOBAL }}"
+  by_dimension:
+    reliability: "{{ TIER_REL }}"
+    security: "{{ TIER_SEC }}"
+    performance: "{{ TIER_PERF }}"
+    cost: "{{ TIER_COST }}"
+    operational: "{{ TIER_OPS }}"
+    sustainability: "{{ TIER_SUST }}"
+
+# Artifacts GENERATED in this project (the catalog and templates live in the global package).
+artifacts:
+  - { id: profile,        path: ./00-PROJECT-PROFILE.md,          status: pending }
+  - { id: business,       path: ./01-BUSINESS-CONSTRAINTS.md,     status: pending }
+  - { id: application,    path: ./02-APPLICATION-GUIDELINES.md,   status: pending }
+  - { id: data,           path: ./03-DATA-GUIDELINES.md,          status: pending }
+  - { id: infrastructure, path: ./04-INFRASTRUCTURE-GUIDELINES.md, status: pending }
+  - { id: nfr,            path: ./NFR.md,                         status: pending }
+  - { id: security,       path: ./SECURITY-BASELINE.md,           status: pending }
+  - { id: trade_offs,     path: ./TRADE-OFFS.md,                  status: pending }
+  - { id: dod,            path: ./DEFINITION-OF-DONE.md,          status: pending }
+  - { id: agent_rules,    path: ./AI-AGENT-RULES.md,              status: pending }

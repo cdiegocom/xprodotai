@@ -1,0 +1,201 @@
+# X-PRO.ai · version 1.1.0
+# catalog/application.yaml — Application battery (APP-01..10)
+# Per-tier directives (with `inherits:`) where the practice scales.
+
+catalog_version: "1.1"
+layer: application
+
+practices:
+  - id: APP-01
+    title: "Presentation pattern"
+    question_ref: APP-Q1
+    question: "What is the predominant interaction style?"
+    options: [server_rendered_ui, spa_api, headless_api_only, batch, event_driven_worker, cli]
+    dimension: operational
+    gate: { tier_required: T0, tier_recommended: T0 }
+    reference: { framework: fowler, pillar: presentation, practice: "presentation-pattern" }
+    directive:
+      do: ["Adopt the pattern that fits the interaction: MVC (server-rendered), MVVM (SPA+API), hexagonal (headless), pipeline (batch/worker)."]
+      dont: ["Do not put business logic in the presentation layer."]
+      verification: "The presentation layer contains no business logic."
+    propagates:
+      - "Defines the boundary that APP-02 (domain) fills."
+
+  - id: APP-02
+    title: "Domain modeling"
+    question_ref: APP-Q2
+    question: "How complex is the business domain?"
+    options: [simple_crud, moderate_rules, rich_domain]
+    dimension: operational
+    gate: { tier_required: null, tier_recommended: T2 }
+    deferrable: true
+    reference: { framework: fowler, pillar: design, practice: "domain-model" }
+    directive:
+      T1:
+        do: ["Use Transaction Script — straightforward logic, no domain layer."]
+        dont: ["Do not introduce tactical DDD: overhead with no payoff here."]
+        verification: "Simple rules live in services, not scattered across presentation."
+      T2:
+        do: ["Use a light Domain Model: entities with their own invariants."]
+        dont: ["Avoid aggregates and bounded contexts if the domain isn't rich."]
+        example: "Expense.approve() encapsulates the limit invariant."
+        verification: "Invariants live in entities, not in scattered ifs."
+    trade_off:
+      record: "Full tactical DDD discarded."
+      reactivate_when: "Domain classified as rich (K-High) in a new round."
+
+  - id: APP-03
+    title: "Internal communication style"
+    question_ref: APP-Q3
+    question: "How does the system communicate internally?"
+    options: [monolith, modular_monolith, microservices, serverless]
+    dimension: operational
+    gate: { tier_required: null, tier_recommended: T2 }
+    deferrable: false
+    reference: { framework: fowler, pillar: architecture, practice: "module-boundaries" }
+    directive:
+      do: ["Prefer a modular monolith unless criticality/complexity justify the cost of microservices.", "Isolate external integrations with an anti-corruption layer."]
+      dont: ["Do not fragment into microservices without operational maturity (BUS-08)."]
+      verification: "Module boundaries are explicit; external integrations have an ACL."
+    propagates:
+      - "Consumes BUS-07 (build vs. buy) and BUS-08 (operations)."
+    trade_off:
+      record: "Microservices deferred."
+      reactivate_when: "Complexity and operational maturity justify it."
+
+  - id: APP-04
+    title: "Consistency"
+    question_ref: APP-Q4
+    question: "What consistency guarantee is required?"
+    options: [strong_transactional, eventual_acceptable, mixed]
+    dimension: reliability
+    gate: { tier_required: T1, tier_recommended: T1 }
+    reference: { framework: fowler, pillar: integration, practice: "saga-outbox" }
+    directive:
+      do: ["Use transactions where integrity is critical; saga/outbox for consistency across services."]
+      dont: ["Do not distribute a transaction without a pattern — avoid fragile two-phase commit."]
+      example: "outbox to publish events together with the transaction"
+      verification: "Multi-step operations have a guarantee (transaction or saga)."
+    note: "Pairs with DATA-04: Application orchestrates; the DATA-04 store guarantees."
+
+  - id: APP-05
+    title: "Failure resilience"
+    question_ref: APP-Q5
+    question: "How should errors and resilience be handled?"
+    options: [best_effort, retries_timeouts, circuit_breaker_bulkhead]
+    dimension: reliability
+    gate: { tier_required: T3, tier_recommended: T2 }
+    deferrable: false
+    reference: { framework: aws-well-architected, pillar: reliability, practice: "resilience" }
+    directive:
+      T2:
+        do: ["Apply an explicit timeout on every external call.", "Use retry with exponential backoff and jitter."]
+        dont: ["Do not add a circuit breaker — deferred at this tier."]
+        example: "httpClient.timeout=2s; retry(max=3, backoff=exp, jitter=true)"
+        verification: "Every external call has a timeout and retry policy."
+      T3:
+        inherits: T2
+        do: ["Add a circuit breaker per dependency.", "Isolate resources with bulkhead and define a fallback."]
+        example: "breaker(failureThreshold=50%, openFor=30s) + bulkhead(maxConcurrent=10)"
+        verification: "A dependency failure does not bring down the service (minimal chaos test)."
+    trade_off:
+      record: "Circuit breaker deferred."
+      reactivate_when: "Reliability dimension rises to T3."
+
+  - id: APP-06
+    title: "Observability"
+    question_ref: APP-Q6
+    question: "What level of observability is needed?"
+    options: [basic_logs, structured_metrics, tracing_slo_alerting]
+    dimension: operational
+    gate: { tier_required: T3, tier_recommended: T2 }
+    deferrable: false
+    reference: { framework: google-sre, pillar: observability, practice: "slo-red-tracing" }
+    directive:
+      T1:
+        do: ["Emit structured logs with a correlation ID."]
+        verification: "Logs let you trace a request end to end."
+      T2:
+        inherits: T1
+        do: ["Expose RED metrics and build dashboards."]
+        verification: "Key metrics have a dashboard."
+      T3:
+        inherits: T2
+        do: ["Add distributed tracing (OpenTelemetry) and SLO/error-budget alerting."]
+        verification: "SLOs have alerts and tracing covers the critical path."
+    propagates:
+      - "Instruments the primary metric from BUS-01."
+
+  - id: APP-07
+    title: "AuthN / AuthZ"
+    question_ref: APP-Q7
+    question: "How do authentication and authorization work?"
+    options: [none_internal, oauth2_oidc, rbac_abac_multitenant]
+    dimension: security
+    gate: { tier_required: T1, tier_recommended: T1, override: "PII/regulated -> Required" }
+    reference: { framework: aws-well-architected, pillar: security, practice: "identity-access" }
+    directive:
+      do: ["Centralize identity (OIDC) and enforce authorization at the right point (gateway or service).", "In multi-tenant, isolate data per tenant."]
+      dont: ["Do not implement home-grown identity or cryptography."]
+      verification: "Access is authenticated and authorized; tenants isolated."
+    propagates:
+      - "Consumes DATA-01 (classification) and the INFRA-06 posture."
+
+  - id: APP-08
+    title: "Testing strategy"
+    question_ref: APP-Q8
+    question: "What testing strategy is expected?"
+    options: [manual, unit_integration, full_pyramid]
+    dimension: operational
+    gate: { tier_required: T2, tier_recommended: T1 }
+    reference: { framework: dora, pillar: quality, practice: "test-pyramid" }
+    directive:
+      T1:
+        do: ["Cover the critical path with unit tests."]
+        verification: "The critical path has unit tests."
+      T2:
+        inherits: T1
+        do: ["Add integration tests and an agreed minimum coverage."]
+        verification: "Integration covers the main flows."
+      T3:
+        inherits: T2
+        do: ["Add contract tests, e2e and load tests."]
+        verification: "The pipeline runs contract, e2e and load tests."
+    propagates:
+      - "Becomes a gate in DEFINITION-OF-DONE and feeds the INFRA-09 pipeline."
+
+  - id: APP-09
+    title: "Configuration and secrets"
+    question_ref: APP-Q9
+    question: "How is the application configured and versioned?"
+    options: [hardcoded, 12factor_env, config_service_flags]
+    dimension: security
+    gate: { tier_required: T1, tier_recommended: T1, override: "secrets in code -> always forbidden" }
+    reference: { framework: 12factor, pillar: config, practice: "config-secrets" }
+    directive:
+      do: ["Read config from environment variables; keep secrets in a vault.", "Use feature flags to decouple deploy from release when useful."]
+      dont: ["Never commit a secret to the repository."]
+      example: "env vars + secret manager; flags for gradual rollout"
+      verification: "No secret in code; configuration externalized."
+    propagates:
+      - "Aligns with SEC-01 (secrets management)."
+    note: "'Never a secret in code' is a ratchet — Required at any tier."
+
+  - id: APP-10
+    title: "Extensibility"
+    question_ref: APP-Q10
+    question: "What is the evolution and extensibility expectation?"
+    options: [throwaway, stable_product, extensible_platform]
+    dimension: operational
+    gate: { tier_required: null, tier_recommended: T2 }
+    deferrable: true
+    reference: { framework: fowler, pillar: evolutionary-design, practice: "ports-adapters-versioning" }
+    directive:
+      do: ["For a product/platform, use ports & adapters and version the public API.", "Define a backward-compatibility policy."]
+      dont: ["Do not invest in extensibility for a throwaway system."]
+      verification: "Extension points and versioning fit the BUS-10 horizon."
+    propagates:
+      - "Calibrated by BUS-10 (evolution/sunset)."
+    trade_off:
+      record: "Ports & adapters / API versioning deferred."
+      reactivate_when: "Horizon becomes a continuous product or platform."

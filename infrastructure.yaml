@@ -1,0 +1,177 @@
+# X-PRO.ai · version 1.1.0
+# catalog/infrastructure.yaml — Infrastructure battery (INFRA-01..10)
+# The layer that maps most directly to the WAF pillars. Consumes what the others propagated:
+# classification/residency (DATA), cost ceiling (BUS-04), SLO/RTO (NFR).
+
+catalog_version: "1.1"
+layer: infrastructure
+
+practices:
+  - id: INFRA-01
+    title: "Hosting model"
+    question_ref: INFRA-Q1
+    question: "Where is the application hosted?"
+    options: [public_cloud, hybrid, on_premises, edge, multi_cloud]
+    dimension: operational
+    gate: { tier_required: T0, tier_recommended: T0 }
+    reference: { framework: aws-well-architected, pillar: operational-excellence, practice: "platform" }
+    directive:
+      do: ["Choose the model according to sovereignty, latency and operating capacity."]
+      dont: ["Do not adopt multi-cloud without a real need — the complexity cost is high."]
+      verification: "The model meets DATA-07 residency and the BUS-08 operating model."
+    propagates:
+      - "Defines the substrate for all infra decisions below."
+    note: "The residency required in DATA-07 may restrict the options here."
+
+  - id: INFRA-02
+    title: "Compute model"
+    question_ref: INFRA-Q2
+    question: "How is the workload executed?"
+    options: [vm, containers_k8s, serverless, paas]
+    dimension: operational
+    gate: { tier_required: T0, tier_recommended: T0 }
+    reference: { framework: aws-well-architected, pillar: operational-excellence, practice: "compute" }
+    directive:
+      do: ["Choose according to the load pattern and the BUS-08 operational maturity."]
+      dont: ["Do not adopt Kubernetes without the operational capacity to sustain it."]
+      example: "serverless for intermittent loads; containers for continuous services"
+      verification: "The model fits the load pattern and whoever operates it."
+    propagates:
+      - "Conditions scalability (INFRA-05) and deploy strategy (INFRA-09)."
+
+  - id: INFRA-03
+    title: "Availability topology"
+    question_ref: INFRA-Q3
+    question: "What is the availability topology?"
+    options: [single_az, multi_az, multi_region, active_active_dr]
+    dimension: reliability
+    gate: { tier_required: null, tier_recommended: T2 }
+    deferrable: false
+    reference: { framework: aws-well-architected, pillar: reliability, practice: "high-availability" }
+    directive:
+      do: ["Size the topology to the SLO declared in NFR-01."]
+      dont: ["Do not pay for multi-region for an SLO that doesn't require it."]
+      example: "T2 multi-AZ · T3 multi-region"
+      verification: "The topology sustains the NFR-01 SLO."
+    propagates:
+      - "Implements NFR-01 (availability SLO)."
+    trade_off:
+      record: "Multi-region deferred."
+      reactivate_when: "Reliability rises to T3."
+
+  - id: INFRA-04
+    title: "RTO and recovery"
+    question_ref: INFRA-Q4
+    question: "What is the acceptable recovery time and DR strategy?"
+    options: [best_effort, backup_restore, pilot_light, warm_standby, active_active]
+    dimension: reliability
+    gate: { tier_required: T1, tier_recommended: T1 }
+    reference: { framework: aws-well-architected, pillar: reliability, practice: "disaster-recovery" }
+    directive:
+      do: ["Define and rehearse the recovery plan proportional to the RTO."]
+      dont: ["Do not declare an RTO without rehearsing recovery."]
+      verification: "The recovery rehearsal meets the NFR-02 RTO."
+    propagates:
+      - "Implements NFR-02 (RTO); pairs with DATA-09 (RPO)."
+
+  - id: INFRA-05
+    title: "Scalability"
+    question_ref: INFRA-Q5
+    question: "How does the system scale with load?"
+    options: [fixed_manual, auto_scaling, elastic_serverless]
+    dimension: performance
+    gate: { tier_required: null, tier_recommended: T2, required_if: "scaling in [auto_scaling, elastic_serverless]" }
+    deferrable: true
+    reference: { framework: aws-well-architected, pillar: performance-efficiency, practice: "elasticity" }
+    directive:
+      do: ["Configure scaling according to the expected load variation."]
+      dont: ["Do not over-provision fixed capacity for a rare peak — it's idle cost."]
+      example: "auto-scaling by utilization metric"
+      verification: "The system absorbs the expected peak without violating NFR-05."
+    trade_off:
+      record: "Auto-scaling deferred."
+      reactivate_when: "Load becomes variable or criticality rises."
+
+  - id: INFRA-06
+    title: "Security posture"
+    question_ref: INFRA-Q6
+    question: "What is the infrastructure security model?"
+    options: [basic_perimeter, segmentation, zero_trust]
+    dimension: security
+    gate: { tier_required: T1, tier_recommended: T2, override: "regulated -> zero_trust/T3" }
+    reference: { framework: aws-well-architected, pillar: security, practice: "defense-in-depth" }
+    directive:
+      do: ["Apply least privilege and segmentation per the DATA-01 classification."]
+      dont: ["Do not expose internal resources without need."]
+      verification: "Access follows least privilege and segmentation by data class."
+    propagates:
+      - "Consumes DATA-01 (classification) and DATA-07 (residency)."
+
+  - id: INFRA-07
+    title: "Network and exposure"
+    question_ref: INFRA-Q7
+    question: "How is the system exposed on the network?"
+    options: [private_internal, simple_public, api_gateway, gateway_waf]
+    dimension: security
+    gate: { tier_required: null, tier_recommended: T2, override: "public+PII -> Required" }
+    deferrable: false
+    reference: { framework: aws-well-architected, pillar: security, practice: "edge" }
+    directive:
+      do: ["Expose through the minimal necessary edge; add gateway/WAF and rate limit on public surfaces (T2+)."]
+      dont: ["Do not expose a database or internal service directly to the internet."]
+      example: "API gateway + WAF + rate limit"
+      verification: "Every public surface goes through a controlled edge."
+    propagates:
+      - "Aligns with SEC-05 (edge protection) in SECURITY-BASELINE."
+
+  - id: INFRA-08
+    title: "IaC and change management"
+    question_ref: INFRA-Q8
+    question: "How is infrastructure provisioned and versioned?"
+    options: [manual, scripts, iac_terraform_cdk, gitops]
+    dimension: operational
+    gate: { tier_required: null, tier_recommended: T2, required_if: "provisioning in [iac_terraform_cdk, gitops]" }
+    deferrable: true
+    reference: { framework: aws-well-architected, pillar: operational-excellence, practice: "infra-as-code" }
+    directive:
+      do: ["Version infrastructure as code from T2 onward."]
+      dont: ["Do not change production manually without an audit trail."]
+      example: "Terraform with PR review; GitOps at T3"
+      verification: "Infra changes are reproducible and auditable."
+    trade_off:
+      record: "Full IaC deferred."
+      reactivate_when: "Moving out of PoC/T0 to a product."
+
+  - id: INFRA-09
+    title: "CI/CD and deploy strategy"
+    question_ref: INFRA-Q9
+    question: "How is deployment done?"
+    options: [manual, basic_pipeline, blue_green, canary]
+    dimension: operational
+    gate: { tier_required: null, tier_recommended: T1, required_if: "deploy in [blue_green, canary]" }
+    deferrable: false
+    reference: { framework: dora, pillar: delivery, practice: "progressive-deploy" }
+    directive:
+      do: ["Automate the pipeline and reduce release risk according to the tier."]
+      dont: ["Do not depend on manual deploy at T2+."]
+      example: "T2 blue-green · T3 canary with automatic rollback"
+      verification: "Deploy is automated and has a rollback path."
+    propagates:
+      - "The APP-08 test gate feeds this pipeline."
+
+  - id: INFRA-10
+    title: "Cost and sustainability"
+    question_ref: INFRA-Q10
+    question: "How are cost and sustainability managed?"
+    options: [uncontrolled, monitored, finops, finops_carbon]
+    dimension: cost
+    gate: { tier_required: null, tier_recommended: T2 }
+    deferrable: true
+    reference: { framework: aws-well-architected, pillar: cost-optimization, practice: "finops-sustainability" }
+    directive:
+      do: ["Monitor cost per unit of value and right-size periodically."]
+      dont: ["Do not leave idle resources without review."]
+      example: "budget alerts + right-sizing"
+      verification: "Cost visibility exists and optimization actions are active."
+    propagates:
+      - "Consumes the BUS-04 cost ceiling; fills NFR-10."

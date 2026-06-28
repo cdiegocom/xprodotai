@@ -1,0 +1,160 @@
+# X-PRO.ai · version 1.1.0
+# catalog/business.yaml — Business battery (BUS-01..10)
+# Same schema as the other layers, plus a `propagates` field: in the business layer
+# most decisions don't become code — they become constraints/targets the other layers inherit.
+# Does NOT re-ask what Layer 0 already measures (SLA, sensitivity, blast radius are Tier scores).
+
+catalog_version: "1.1"
+layer: business
+
+practices:
+  - id: BUS-01
+    title: "Success metric (North Star)"
+    question_ref: BUS-Q1
+    question: "What is the product's primary success metric?"
+    options: [acquisition, retention, revenue, operational_efficiency, compliance]
+    dimension: operational
+    gate: { tier_required: T1, tier_recommended: T0 }
+    reference: { framework: dora, pillar: outcomes, practice: "north-star-metric" }
+    directive:
+      do: ["Instrument the chosen metric explicitly from the MVP onward."]
+      dont: ["Do not optimize dimensions that don't move the primary metric."]
+      verification: "The primary metric is measurable in production."
+    propagates:
+      - "Defines the focus of observability (links to APP-06)."
+
+  - id: BUS-02
+    title: "Governance model"
+    question_ref: BUS-Q2
+    question: "How are architecture decisions approved?"
+    options: [solo, small_team, committee, regulated_multi_stakeholder]
+    dimension: operational
+    gate: { tier_required: T2, tier_recommended: T1 }
+    reference: { framework: aws-well-architected, pillar: operational-excellence, practice: "governance" }
+    directive:
+      do: ["Record relevant decisions as ADRs.", "Define who approves architecture changes."]
+      dont: ["Do not make a structural decision without an ADR in a T2+ project."]
+      verification: "Architecture decisions have a traceable ADR."
+    propagates:
+      - "Defines the ADR cadence required in DEFINITION-OF-DONE."
+
+  - id: BUS-03
+    title: "Compliance obligations"
+    question_ref: BUS-Q3
+    question: "Which concrete regulatory obligations apply?"
+    options: [none, privacy_law, financial_sector, health, government]
+    dimension: security
+    gate: { tier_required: T1, tier_recommended: T1 }
+    reference: { framework: aws-well-architected, pillar: security, practice: "compliance" }
+    directive:
+      do: ["List the concrete obligations: minimum retention, residency, right to erasure."]
+      dont: ["Do not treat compliance as an optional backlog item."]
+      verification: "Each obligation has a matching control in SECURITY-BASELINE."
+    propagates:
+      - "Forces specific controls in SECURITY-BASELINE and classification in 03-DATA."
+    note: "Complements C2 in Layer 0: C2 measures how sensitive; BUS-03 declares what to do about it."
+
+  - id: BUS-04
+    title: "Revenue model and cost sensitivity"
+    question_ref: BUS-Q4
+    question: "How does the product create value and how cost-sensitive is it?"
+    options: [internal_no_revenue, subscription, transactional, advertising, free]
+    dimension: cost
+    gate: { tier_required: T2, tier_recommended: T1 }
+    reference: { framework: aws-well-architected, pillar: cost-optimization, practice: "finops" }
+    directive:
+      do: ["Set a cost ceiling and instrument spend per unit of value."]
+      dont: ["Do not oversize infrastructure without revenue justification."]
+      verification: "A budget and cost visibility exist (basic FinOps)."
+    propagates:
+      - "Calibrates the cost tier and right-sizing in 04-INFRASTRUCTURE."
+
+  - id: BUS-05
+    title: "Time-to-market vs. robustness priority"
+    question_ref: BUS-Q5
+    question: "Which prevails in a conflict: speed or robustness?"
+    options: [fast_mvp, balanced, robustness_first]
+    dimension: operational
+    gate: { tier_required: T0, tier_recommended: T0 }
+    reference: { framework: dora, pillar: delivery, practice: "speed-trade-off" }
+    directive:
+      do: ["Under 'fast_mvp', defer non-critical Recommended practices and record them in TRADE-OFFS."]
+      dont: ["Do not use 'fast_mvp' to skip Required controls — those never yield."]
+      verification: "Speed-driven deferrals are recorded with a review trigger."
+    propagates:
+      - "Modulates the aggressiveness of Recommended gates across all layers."
+
+  - id: BUS-06
+    title: "Critical business capabilities"
+    question_ref: BUS-Q6
+    question: "Which capabilities/processes are critical and which are ancillary?"
+    options: [capability_map]
+    dimension: reliability
+    gate: { tier_required: T2, tier_recommended: T2 }
+    reference: { framework: togaf, pillar: business-architecture, practice: "capability-map" }
+    directive:
+      do: ["Mark which modules support critical capabilities."]
+      dont: ["Do not level every module to the same rigor if capabilities differ."]
+      verification: "Critical modules have an effective tier equal to or higher than ancillary ones."
+    propagates:
+      - "Enables per-capability tiering: a critical module inherits a higher tier than the rest."
+
+  - id: BUS-07
+    title: "Build vs. buy"
+    question_ref: BUS-Q7
+    question: "What is the stance on building vs. using third parties?"
+    options: [all_in_house, saas_first, hybrid]
+    dimension: operational
+    gate: { tier_required: T2, tier_recommended: T1 }
+    reference: { framework: aws-well-architected, pillar: operational-excellence, practice: "dependencies" }
+    directive:
+      do: ["Isolate third-party dependencies behind anti-corruption layers."]
+      dont: ["Do not couple business logic directly to a vendor's API."]
+      verification: "Swapping a vendor does not require rewriting the domain."
+    propagates:
+      - "Reinforces the communication boundary in APP-03 and vendor lock-in risk."
+
+  - id: BUS-08
+    title: "Post-delivery operating model"
+    question_ref: BUS-Q8
+    question: "Who operates and sustains the system after delivery?"
+    options: [own_team, ops_team, third_party, managed_serverless]
+    dimension: operational
+    gate: { tier_required: T2, tier_recommended: T1 }
+    reference: { framework: google-sre, pillar: operations, practice: "runbooks-toil" }
+    directive:
+      do: ["Produce runbooks for critical flows.", "Automate repetitive operational tasks."]
+      dont: ["Do not leave operations dependent on one person's tacit knowledge."]
+      verification: "Critical flows have runbooks and operational toil is mapped."
+    propagates:
+      - "Defines the required level of automation and observability (links to APP-06)."
+
+  - id: BUS-09
+    title: "Business data lifecycle"
+    question_ref: BUS-Q9
+    question: "What is the role of the data the system stores?"
+    options: [ephemeral, operational, system_of_record, regulatory]
+    dimension: security
+    gate: { tier_required: T1, tier_recommended: T1 }
+    reference: { framework: aws-well-architected, pillar: reliability, practice: "data-lifecycle" }
+    directive:
+      do: ["Define retention and disposal according to the data's role."]
+      dont: ["Do not treat a system-of-record as lightly as ephemeral data."]
+      verification: "A retention/disposal policy consistent with the data's role exists."
+    propagates:
+      - "Defines backup, RPO and retention in 03-DATA and SECURITY-BASELINE."
+
+  - id: BUS-10
+    title: "Evolution / sunset plan"
+    question_ref: BUS-Q10
+    question: "What is the system's expected lifespan?"
+    options: [throwaway_after_validation, continuous_product, long_term_platform]
+    dimension: operational
+    gate: { tier_required: T1, tier_recommended: T1 }
+    reference: { framework: fowler, pillar: evolutionary-design, practice: "fitness-functions" }
+    directive:
+      do: ["For 'long_term_platform', prioritize extensibility and API versioning."]
+      dont: ["Do not invest in extensibility for a 'throwaway_after_validation' system."]
+      verification: "The level of extensibility is consistent with the declared horizon."
+    propagates:
+      - "Calibrates APP-10 (extensibility) and acceptable technical debt."

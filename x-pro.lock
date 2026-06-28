@@ -1,0 +1,26 @@
+# X-PRO.ai · version 1.1.0
+# x-pro.lock — GENERATED. Pins the global catalog used by this project.
+# Commit it to the repository. It guarantees reproducible builds even as the global catalog evolves.
+# Regenerating with the same version + same answers = identical artifacts.
+
+lockfile_version: 1
+
+catalog:
+  name: x-pro-catalog
+  version: "1.1.0"                              # exact resolved version (not a range)
+  resolved: "git+https://github.com/<org>/x-pro-catalog.git#v1.1.0"
+  integrity: "sha256-{{ CATALOG_HASH }}"        # hash of the catalog content
+
+engine:
+  version: "1.0"
+
+inputs:
+  # Hash of the profile answers. If it changes, the artifacts are stale -> regenerate.
+  answers_digest: "sha256-{{ ANSWERS_HASH }}"
+
+generated: "{{ DATE }}"
+
+# Expected command flow:
+#   init      -> resolves the latest compatible version, writes this lock, generates artifacts
+#   regen     -> uses the version PINNED here (reproducible)
+#   upgrade   -> bumps catalog.version, shows the recommendation diff (see CHANGELOG), regenerates

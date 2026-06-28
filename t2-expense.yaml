@@ -1,0 +1,26 @@
+# X-PRO.ai · version 1.1.0
+# fixtures/t2-expense.yaml — real case (see examples/expense-approval)
+name: t2-expense
+description: "Internal expense approval, ERP + payment gateway, small team / tight deadline."
+
+answers:
+  criticality: { C1: 2, C2: 2, C3: 1, C4: 1, C5: 2 }   # 8 -> C-High
+  complexity: { K1: 1, K2: 1, K3: 1, K4: 1 }            # 4 -> K-Med
+  constraint: { R1: 2 }                                 # fast_mvp
+  flags: [payment_pci]
+  batteries:
+    business: { Q5: fast_mvp }
+    application: { Q1: spa_api, Q2: moderate_rules, Q5: retries_timeouts, Q7: oauth2_oidc, Q8: unit_integration, Q9: 12factor_env }
+    data: { Q1: confidential, Q3: moderate, Q5: oltp, Q7: full_privacy_law, Q9: frequent }
+    infrastructure: { Q2: paas, Q5: fixed_manual, Q6: segmentation }
+
+expected:
+  tier_global: T2
+  tiers: { security: T3, reliability: T2, performance: T2, cost: T2, operational: T2 }
+  overrides: ["payment -> security T3"]
+  conflicts: ["execution: T2/T3 rigor vs. team/deadline"]
+  asserts:
+    - "APP-07 == Required"     # financial-data override
+    - "APP-05 == Recommended"  # deferrable=false: not downgraded by fast_mvp
+    - "APP-10 == Deferred"     # deferrable=true: downgraded by fast_mvp
+    - "INFRA-05 == Deferred"   # deferrable=true + answer fixed_manual

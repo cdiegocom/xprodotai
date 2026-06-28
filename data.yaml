@@ -1,0 +1,169 @@
+# X-PRO.ai · version 1.1.0
+# catalog/data.yaml — Data battery (DATA-01..10)
+# More technical directives than Business, but several records also propagate
+# constraints to Security and Infra. Cross-links marked in `note`/`propagates`.
+
+catalog_version: "1.1"
+layer: data
+
+practices:
+  - id: DATA-01
+    title: "Data classification"
+    question_ref: DATA-Q1
+    question: "How is the data classified by sensitivity?"
+    options: [public, internal, confidential, pii, regulated]
+    dimension: security
+    gate: { tier_required: T0, tier_recommended: T0 }
+    reference: { framework: aws-well-architected, pillar: security, practice: "data-classification" }
+    directive:
+      do: ["Classify each dataset and propagate the tag to the store."]
+      dont: ["Do not mix PII and public data in the same store without access control."]
+      example: "classification tag per table/collection; access policies per class"
+      verification: "Every dataset has an assigned classification."
+    propagates:
+      - "Drives encryption and access control in SECURITY-BASELINE and Infra, per class."
+    note: "Complements C2 in Layer 0: C2 is the score; DATA-01 is the taxonomy that drives controls."
+
+  - id: DATA-02
+    title: "Data model"
+    question_ref: DATA-Q2
+    question: "What is the predominant nature of the data?"
+    options: [relational, document, graph, time_series, blob_binary]
+    dimension: performance
+    gate: { tier_required: T0, tier_recommended: T0 }
+    reference: { framework: fowler, pillar: data-modeling, practice: "polyglot-persistence" }
+    directive:
+      do: ["Choose the store according to the model and access patterns."]
+      dont: ["Do not force relational onto data that is naturally graph or time-series."]
+      verification: "The chosen store fits the model and the DATA-05 access patterns."
+    propagates:
+      - "Conditions the persistence technology in 04-INFRASTRUCTURE."
+
+  - id: DATA-03
+    title: "Volume and growth"
+    question_ref: DATA-Q3
+    question: "What is the current volume and growth rate?"
+    options: [low, moderate, high, big_data_streaming]
+    dimension: performance
+    gate: { tier_required: null, tier_recommended: T2, required_if: "volume in [high, big_data_streaming]" }
+    deferrable: true
+    reference: { framework: aws-well-architected, pillar: performance-efficiency, practice: "partitioning" }
+    directive:
+      do: ["Define indexes and partitioning proportional to the expected volume."]
+      dont: ["Do not optimize for a scale that doesn't exist (at low volume)."]
+      example: "index on hot query columns; partition by date for time-series"
+      verification: "Hot queries have an acceptable plan at the expected volume."
+    trade_off:
+      record: "Aggressive sharding/partitioning deferred."
+      reactivate_when: "Volume rises to high/big_data."
+
+  - id: DATA-04
+    title: "Consistency and integrity"
+    question_ref: DATA-Q4
+    question: "What consistency level is required?"
+    options: [strong_transactional, eventual_acceptable, mixed]
+    dimension: reliability
+    gate: { tier_required: T1, tier_recommended: T1 }
+    reference: { framework: aws-well-architected, pillar: reliability, practice: "data-integrity" }
+    directive:
+      do: ["Use ACID transactions where integrity is critical."]
+      dont: ["Do not assume strong consistency in an eventually-consistent store."]
+      verification: "Critical invariants are guaranteed by the store or by saga."
+    note: "Pairs with APP-04: Data defines the store's guarantee; Application defines the pattern (saga/outbox)."
+
+  - id: DATA-05
+    title: "Access patterns"
+    question_ref: DATA-Q5
+    question: "How is the data predominantly read and written?"
+    options: [oltp, olap, streaming, mixed]
+    dimension: performance
+    gate: { tier_required: null, tier_recommended: T2, required_if: "access == mixed" }
+    deferrable: true
+    reference: { framework: fowler, pillar: data-access, practice: "cqrs" }
+    directive:
+      do: ["Separate OLTP from OLAP workloads when they coexist (read replica or CQRS)."]
+      dont: ["Do not run heavy analytics on the production transactional database."]
+      verification: "Analytical load does not degrade the transactional path."
+    trade_off:
+      record: "OLTP/OLAP separation deferred."
+      reactivate_when: "Reliability or volume rise."
+
+  - id: DATA-06
+    title: "Retention and disposal"
+    question_ref: DATA-Q6
+    question: "How long must each data item be kept and how is it disposed of?"
+    options: [indefinite, by_policy, legal_minimum, dispose_after_use]
+    dimension: security
+    gate: { tier_required: T1, tier_recommended: T1 }
+    reference: { framework: aws-well-architected, pillar: security, practice: "lifecycle" }
+    directive:
+      do: ["Define retention per class and automate disposal."]
+      dont: ["Do not retain PII beyond what's necessary."]
+      verification: "An expiration/disposal routine by policy exists."
+    propagates:
+      - "Inherits the data's role from BUS-09; fills NFR-09."
+
+  - id: DATA-07
+    title: "Privacy and sovereignty"
+    question_ref: DATA-Q7
+    question: "Are there privacy or data-locality requirements?"
+    options: [none, anonymization, local_residency, full_privacy_law]
+    dimension: security
+    gate: { tier_required: null, tier_recommended: T2, override: "regulated/PII -> Required" }
+    reference: { framework: aws-well-architected, pillar: security, practice: "privacy" }
+    directive:
+      do: ["Anonymize or pseudonymize where applicable and respect data residency."]
+      dont: ["Do not export PII to a non-permitted region."]
+      verification: "PII transits and rests only where permitted."
+    propagates:
+      - "Forces region and network segmentation in 04-INFRASTRUCTURE."
+
+  - id: DATA-08
+    title: "Lineage, quality and governance"
+    question_ref: DATA-Q8
+    question: "Is it necessary to track data origin and quality?"
+    options: [no, basic, full_lineage]
+    dimension: operational
+    gate: { tier_required: null, tier_recommended: T2 }
+    deferrable: true
+    reference: { framework: dama-dmbok, pillar: data-governance, practice: "lineage-quality" }
+    directive:
+      do: ["Record origin and validate quality at data ingestion."]
+      dont: ["Do not trust external data without validation."]
+      verification: "Critical data has quality validation and traceable origin."
+    trade_off:
+      record: "Full lineage deferred."
+      reactivate_when: "Operational rises to T2+."
+
+  - id: DATA-09
+    title: "Backup and RPO"
+    question_ref: DATA-Q9
+    question: "What is the backup strategy and acceptable recovery point?"
+    options: [no_backup, daily, frequent, continuous_pitr]
+    dimension: reliability
+    gate: { tier_required: T1, tier_recommended: T1 }
+    reference: { framework: aws-well-architected, pillar: reliability, practice: "backup-restore" }
+    directive:
+      do: ["Define backup according to the tier and test restore periodically."]
+      dont: ["Do not assume the backup exists without testing restore."]
+      example: "T1 daily · T2 frequent · T3 continuous PITR"
+      verification: "Tested restore meets the RPO declared in NFR-03."
+    propagates:
+      - "Implements the NFR-03 RPO; inherits the data's role from BUS-09."
+
+  - id: DATA-10
+    title: "Integration and movement"
+    question_ref: DATA-Q10
+    question: "How does data enter, leave and move between systems?"
+    options: [none, batch_etl, cdc, event_streaming]
+    dimension: operational
+    gate: { tier_required: null, tier_recommended: T2 }
+    deferrable: false
+    reference: { framework: aws-well-architected, pillar: operational-excellence, practice: "data-integration" }
+    directive:
+      do: ["Choose the mechanism according to latency and volume."]
+      dont: ["Do not couple systems via direct access to another's database."]
+      example: "outbox + events for async integration; CDC for replication"
+      verification: "Integrations do not depend on direct access to another schema."
+    propagates:
+      - "Pairs with APP-04 (outbox) and APP-03 (communication boundaries)."

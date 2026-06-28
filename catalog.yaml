@@ -1,0 +1,30 @@
+# X-PRO.ai · version 1.1.0
+# catalog.yaml — GLOBAL X-PRO.ai library
+# Versioned separately (own repo/registry). Projects reference it via x-pro.lock.
+# Single source of truth. Improvements here propagate to every project that upgrades.
+
+catalog:
+  name: x-pro-catalog
+  version: "1.1.0"            # semver — see versioning_policy
+  engine_compat: ">=1.0 <2.0"
+
+versioning_policy:
+  major: "Changes existing recommendations (e.g. a practice goes from Recommended to Required). Upgrade alters project artifacts."
+  minor: "Adds practices or questions. Backward-compatible — does not change what already existed."
+  patch: "Text, examples, references. No recommendation change."
+
+question_bank_version: "1.0"
+frameworks_ref: [aws-well-architected, azure-well-architected, google-sre, 12factor, dora]
+
+contents:
+  tier_engine: ./catalog/tier-engine.yaml
+  layers:
+    business:       ./catalog/business.yaml
+    application:    ./catalog/application.yaml
+    data:           ./catalog/data.yaml
+    infrastructure: ./catalog/infrastructure.yaml
+  templates: ../x-pro-ai/   # document & layer skeletons ship with the project scaffold (single source; not duplicated in the catalog)
+
+distribution:
+  source: git
+  example_ref: "git+https://github.com/<org>/x-pro-catalog.git#v1.1.0"

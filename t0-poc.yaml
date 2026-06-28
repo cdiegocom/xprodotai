@@ -1,0 +1,20 @@
+# X-PRO.ai · version 1.1.0
+# fixtures/t0-poc.yaml — floor scenario
+name: t0-poc
+description: "Throwaway internal PoC, no sensitive data, 1 user, no SLA."
+
+answers:
+  criticality: { C1: 0, C2: 0, C3: 0, C4: 0, C5: 0 }   # sum 0 -> C-Low
+  complexity: { K1: 0, K2: 0, K3: 0, K4: 0 }            # sum 0 -> K-Low
+  constraint: { R1: 1 }                                 # tight deadline
+  batteries:
+    application: { Q5: best_effort, Q9: 12factor_env }
+    data: { Q1: public }
+
+expected:
+  tier_global: T0
+  overrides: []
+  asserts:
+    - "APP-09 == Required"     # secrets ratchet works at the floor
+    - "APP-01 == Required"     # "must decide" basics remain Required
+    - "APP-06 == Discarded"    # heavy rigor does not leak into a PoC

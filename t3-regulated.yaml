@@ -1,0 +1,25 @@
+# X-PRO.ai · version 1.1.0
+# fixtures/t3-regulated.yaml — ceiling scenario
+name: t3-regulated
+description: "Healthcare system, patient data, 24x7, millions of users, big-data."
+
+answers:
+  criticality: { C1: 3, C2: 3, C3: 3, C4: 3, C5: 3 }   # 15 -> C-Critical
+  complexity: { K1: 2, K2: 2, K3: 2, K4: 2 }            # 8 -> K-High
+  constraint: { R1: 0 }                                 # comfortable deadline
+  batteries:
+    application: { Q5: circuit_breaker_bulkhead, Q6: tracing_slo_alerting, Q8: full_pyramid }
+    data: { Q1: regulated, Q3: big_data_streaming, Q5: mixed, Q9: continuous_pitr }
+    infrastructure: { Q3: multi_region, Q5: auto_scaling, Q8: gitops, Q9: canary }
+
+expected:
+  tier_global: T3
+  tiers: { security: T3, reliability: T3, performance: T3, cost: T3, operational: T3 }
+  overrides: ["C2 regulated -> global floor T3", "C1 life-safety -> global floor T3"]
+  asserts:
+    # post-calibration: these would FAIL on v1.0.0 (were Recommended) and PASS on v1.1
+    - "DATA-03 == Required"    # required_if volume=big_data
+    - "DATA-05 == Required"    # required_if access=mixed
+    - "INFRA-05 == Required"   # required_if scaling=auto_scaling
+    - "APP-05 == Required"     # tier_required=T3 reached
+    - "count Deferred == 0"    # comfortable deadline, no fast_mvp modulation

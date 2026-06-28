@@ -1,0 +1,53 @@
+# X-PRO.ai · version 1.1.0
+# tier-engine.yaml — Layer 0 as versioned data.
+# Tier logic is data, not code: tuning a weight, a band or an override is an
+# auditable edit here, without touching the generator.
+
+engine_version: "1.0"
+
+axes:
+  criticality:
+    questions:
+      C1: { label: "impact of failure",      scale: [0, 1, 2, 3] }
+      C2: { label: "data sensitivity",        scale: [0, 1, 2, 3], triggers_override: true }
+      C3: { label: "blast radius",            scale: [0, 1, 2, 3] }
+      C4: { label: "expected SLA",            scale: [0, 1, 2, 3] }
+      C5: { label: "reversibility",           scale: [0, 1, 2, 3] }
+    bands:
+      C-Low:      [0, 3]
+      C-Med:      [4, 7]
+      C-High:     [8, 11]
+      C-Critical: [12, 15]
+  complexity:
+    questions:
+      K1: { label: "domain",        scale: [0, 1, 2] }
+      K2: { label: "integrations",  scale: [0, 1, 2] }
+      K3: { label: "data",          scale: [0, 1, 2] }
+      K4: { label: "distribution",  scale: [0, 1, 2] }
+    bands:
+      K-Low:  [0, 3]
+      K-Med:  [4, 6]
+      K-High: [7, 8]
+
+# [criticality][complexity] -> base tier
+matrix:
+  C-Critical: { K-Low: T3, K-Med: T3, K-High: T3 }
+  C-High:     { K-Low: T2, K-Med: T2, K-High: T3 }
+  C-Med:      { K-Low: T1, K-Med: T2, K-High: T2 }
+  C-Low:      { K-Low: T0, K-Med: T1, K-High: T1 }
+
+# Ratchet: overrides only RAISE the tier, never lower it.
+overrides:
+  - when: "C2 == regulated"
+    effect: { global_floor: T3 }
+  - when: "C2 in [pii, financial]"
+    effect: { dimension: security, floor: T2 }
+  - when: "data == payment_pci"
+    effect: { dimension: security, floor: T3 }
+  - when: "C1 == life_safety"
+    effect: { global_floor: T3 }
+
+# Detection, not blocking: becomes an "accepted risk" in TRADE-OFFS.md.
+conflicts:
+  - when: "C4 >= '99.9%' and R1 == critical"
+    flag: "Execution: required availability exceeds declared capacity/deadline."
